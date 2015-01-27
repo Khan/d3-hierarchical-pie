@@ -19,6 +19,7 @@ var HierarchicalPie = function(options) {
         hideNavOnRoot     : true,
         dataSchema        : {
             idField       : 'id_category',
+            titleField    : 'category',  // Used for breadcrumbs
             valueField    : 'cost',
             childrenField : 'categories'
         },
@@ -167,7 +168,8 @@ var HierarchicalPie = function(options) {
             .enter()
             .append("li")
             .html(function(d, i) {
-                return d.category + '<span class="divider">/</span>';
+                return d[config.dataSchema.titleField] +
+                    '<span class="divider">/</span>';
             });
     }
 
