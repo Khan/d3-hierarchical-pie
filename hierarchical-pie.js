@@ -1,4 +1,10 @@
-/*global $:false ko:false console:false d3:false */
+/** https://github.com/yhnavein/d3-hierarchical-pie/blob/master/hierarchical-pie.js
+ *
+ * Modified for use by KA.
+*/
+var $ = require("jquery");
+var d3 = require("d3");
+
 var HierarchicalPie = function(options) {
   var self = this;
 
@@ -204,3 +210,5 @@ var HierarchicalPie = function(options) {
   self.renderCake(config.data);
 
 };
+
+module.exports = HierarchicalPie;
