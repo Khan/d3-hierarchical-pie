@@ -29,7 +29,23 @@ var HierarchicalPie = function(options) {
         focusAnimation : {
             easing   : "easeInOutQuart",
             duration : 100
-        }
+        },
+        rowTemplate: function(d) {
+            /** Return a string html output for displaying a row in the chart
+             */
+            var output = '<td class="color-cell">' +
+                '<span class="cat-color" style="background: ' + d.color +
+                    '"></span>' +
+                '</td>' +
+                '<td>';
+            if (d.isDirect) {
+                output += '<span title="Directly in this category"' +
+                   ' rel="tooltip"><i class="icon-info"></i></span>';
+            }
+            output += d.category + '</td>' +
+                '<td class="cost">$' + d.cost + '</td>';
+            return output;
+        },
     };
 
     $.extend(config, config, options || {});
@@ -44,7 +60,6 @@ var HierarchicalPie = function(options) {
         var table = d3.select(config.legendContainer).select('table');
         table.select('tbody').remove();
         var tbody = table.append('tbody');
-        var rowTemplate = Mustache.compile($('#rowTemplate').html());
         // create a row for each object in the data
         var tableRows = tbody.selectAll("tr")
             .data(data)
@@ -59,7 +74,7 @@ var HierarchicalPie = function(options) {
                 .html(function(d) {
                     d.color = self.color(d[config.dataSchema.idField]);
                     d.isDirect = d[config.dataSchema.idField] == null;
-                    return rowTemplate(d);
+                    return config.rowTemplate(d);
                 });
         return table;
     };
