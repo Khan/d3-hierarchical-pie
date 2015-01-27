@@ -47,6 +47,15 @@ var HierarchicalPie = function(options) {
                 '<td class="cost">$' + d.cost + '</td>';
             return output;
         },
+        mouseOverLabelTemplate: function(d) {
+            var percentage = (
+                ((d.endAngle - d.startAngle) / (2 * Math.PI)) * 100)
+                .toFixed(1);
+            return percentage + '%';
+        },
+        mouseOverSubLabelTemplate: function(d) {
+            return "$" + d.data[config.dataSchema.valueField];
+        }
     };
 
     $.extend(config, config, options || {});
@@ -212,10 +221,8 @@ var HierarchicalPie = function(options) {
     this.pieMouseOver = function (d, i) {
         var hovered = d3.select(this);
 
-        var percentage = (((d.endAngle - d.startAngle) / (2 * Math.PI)) * 100)
-            .toFixed(1);
-        self.percentLabel.text(percentage + '%');
-        self.costLabel.text('$' + d.data[config.dataSchema.valueField]);
+        self.percentLabel.text(config.mouseOverLabelTemplate(d));
+        self.costLabel.text(config.mouseOverSubLabelTemplate(d));
         self.focusGroup.transition().attr('opacity', 1);
         hovered.transition().ease(config.focusAnimation.easing).duration(
             config.focusAnimation.duration).attr("d", self.arcOver);
