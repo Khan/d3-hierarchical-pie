@@ -75,7 +75,8 @@ var HierarchicalPie = function(options) {
                     d.color = self.color(d[config.dataSchema.idField]);
                     d.isDirect = d[config.dataSchema.idField] == null;
                     return config.rowTemplate(d);
-                });
+                })
+                .on('click', self.selectChild);
         return table;
     };
 
@@ -170,21 +171,26 @@ var HierarchicalPie = function(options) {
             });
     }
 
-    this.pieClick = function (d, i) {
-        var c = self.arc.centroid(d);
-        if(typeof d.data[config.dataSchema.childrenField] === 'undefined')
+    this.selectChild = function (data) {
+        if(typeof data[config.dataSchema.childrenField] === 'undefined')
             return false;
 
         self.inLevel++;
-        self.dataChain.push( d.data );
+        self.dataChain.push( data );
 
         self.focusGroup.attr('opacity', 0);
-        d3.select(this).attr("d", self.arc);
 
-        self.renderCake(d.data[config.dataSchema.childrenField]);
+        self.renderCake(data[config.dataSchema.childrenField]);
         if(self.inLevel > 1)
             self.navigation.show();
 
+        return false;
+    };
+
+    this.pieClick = function (d, i) {
+        var c = self.arc.centroid(d);
+        self.selectChild(d.data);
+        d3.select(this).attr("d", self.arc);
         return false;
     };
 
