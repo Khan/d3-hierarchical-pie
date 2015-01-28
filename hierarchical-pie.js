@@ -66,6 +66,12 @@ var HierarchicalPie = function(options) {
         return function(t) { return self.arc(i(t)); };
     };
 
+    this.shadedTweenPie = function(b){
+        b.innerRadius = 0;
+        var i = d3.interpolate({startAngle: 0, endAngle: 0}, b);
+        return function(t) { return self.shadedArc(i(t)); };
+    };
+
     this.tabulateCategories = function (data) {
         var table = d3.select(config.legendContainer).select('table');
         table.select('tbody').remove();
@@ -95,6 +101,14 @@ var HierarchicalPie = function(options) {
     self.height = config.height;
     // pie radius
     self.radius = Math.min(self.width, self.height) / 2;
+    self.innerRadius = self.radius / 2;
+
+    this.shadedRadius = function(d) {
+        return (self.radius - self.innerRadius) *
+            d.data[config.dataSchema.shadedPercentField] / 100 +
+            self.innerRadius;
+    };
+
     self.inLevel = 1;
     //data for each level of chart, to make navigation possible
     self.dataChain = [];
@@ -108,9 +122,36 @@ var HierarchicalPie = function(options) {
         self.color = function(id) {
             return id === null ? '#ddd' : self.palette(id);
         };
-        self.arc     = d3.svg.arc()
+
+        self.svg = d3.select(config.chartId).append("svg")
+            .attr('id', 'chart').attr("width", self.width)
+            .attr("height", self.height)
+            .append("g")
+            .attr("transform", "translate(" + self.radius + "," +
+                ((self.height / 2)) + ")");
+
+        self.arc = d3.svg.arc()
             .outerRadius(self.radius - config.hoverRadiusDiff)
             .innerRadius(self.radius / 2);
+
+        if (config.dataSchema.shadedPercentField) {
+            self.shadedArc = d3.svg.arc()
+                .outerRadius(self.radius - config.hoverRadiusDiff)
+                .innerRadius(self.shadedRadius);
+
+            self.svg
+                .append('defs')
+                .append('pattern')
+                    .attr('id', 'diagonalHatch')
+                    .attr('patternUnits', 'userSpaceOnUse')
+                    .attr('width', 4)
+                    .attr('height', 4)
+                .append('path')
+                    .attr('d', 'M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2')
+                    .attr('stroke', '#000000')
+                    .attr('stroke-width', 1);
+        }
+
         self.arcOver = d3.svg.arc().outerRadius(self.radius)
             .innerRadius(self.radius / 2);
         self.pie     = d3.layout.pie().sort(null).value(function(d) {
@@ -121,12 +162,6 @@ var HierarchicalPie = function(options) {
             return val;
         });
 
-        self.svg = d3.select(config.chartId).append("svg")
-            .attr('id', 'chart').attr("width", self.width)
-            .attr("height", self.height)
-            .append("g")
-            .attr("transform", "translate(" + self.radius + "," +
-                ((self.height / 2)) + ")");
 
         self.focusGroup = self.svg.append('g').attr('class', 'focus-group');
 
@@ -209,8 +244,15 @@ var HierarchicalPie = function(options) {
         var hovered = d3.select(this);
 
         self.focusGroup.transition().attr('opacity', 0);
-        hovered.transition().ease(config.focusAnimation.easing).
-            duration(config.focusAnimation.duration).attr("d", self.arc);
+
+        if (!config.dataSchema.shadedPercentField) {
+            //TODO(james): This does not work well with new shaded arcs.
+            //Both the shaded arc and original one would have to expand.  I'm
+            //not sure I actually like this effect though - so no big loss.
+            hovered.transition().ease(config.focusAnimation.easing)
+                .duration(config.focusAnimation.duration)
+                .attr("d", self.arc);
+        }
 
         d3.select(config.legendContainer)
             .select('.legend-row-' + d.data[config.dataSchema.idField])
@@ -224,8 +266,15 @@ var HierarchicalPie = function(options) {
         self.percentLabel.text(config.mouseOverLabelTemplate(d));
         self.costLabel.text(config.mouseOverSubLabelTemplate(d));
         self.focusGroup.transition().attr('opacity', 1);
-        hovered.transition().ease(config.focusAnimation.easing).duration(
-            config.focusAnimation.duration).attr("d", self.arcOver);
+
+        if (!config.dataSchema.shadedPercentField) {
+            //TODO(james): This does not work well with new shaded arcs.
+            //Both the shaded arc and original one would have to expand.  I'm
+            //not sure I actually like this effect though - so no big loss.
+            hovered.transition().ease(config.focusAnimation.easing)
+                .duration(config.focusAnimation.duration)
+                .attr("d", self.arcOver);
+        }
 
         d3.select(config.legendContainer)
             .select('.legend-row-' + d.data[config.dataSchema.idField])
@@ -234,7 +283,8 @@ var HierarchicalPie = function(options) {
 
     this.renderCake = function(data) {
         self.updateNav();
-        self.svg.select('g.cake').remove();
+        self.svg.selectAll('g.cake').remove();
+
         var arcs = self.svg.append('g').attr('class', 'cake')
             .selectAll("g.arc").data(self.pie(data))
             .enter().append("g")
@@ -259,6 +309,26 @@ var HierarchicalPie = function(options) {
             .transition().ease(config.hoverPieAnimation.easing)
             .duration(config.hoverPieAnimation.duration)
             .attrTween("d", self.tweenPie);
+
+        if (config.dataSchema.shadedPercentField) {
+            var shadedArcs = self.svg.append('g').attr('class', 'cake')
+                .selectAll("g.arc").data(self.pie(data))
+                .enter().append("g")
+                .attr("class", "arc");
+
+            shadedArcs.append("path").attr("d", self.shadedArc)
+                .attr('fill', 'url(#diagonalHatch)')
+                .attr('class', function(d) {
+                    return 'category-pie-' + d.data[config.dataSchema.idField]
+                        + (typeof d.data[config.dataSchema.childrenField] ===
+                           'undefined' ? ' pie-leaf' : '');
+                })
+                .on('mouseover', self.pieMouseOver)
+                .on('mouseout', self.pieMouseOut)
+                .on('click', self.pieClick)
+                .transition().ease(config.hoverPieAnimation.easing).duration(config.hoverPieAnimation.duration)
+                .attrTween("d", self.shadedTweenPie);
+        }
 
         self.tabulateCategories(data);
     };
